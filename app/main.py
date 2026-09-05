@@ -25,7 +25,28 @@ TOOLS = [
                 "required": ["file_path"],
             },
         },
-    }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "Write",
+            "description": "Write content to a file",
+            "parameters": {
+                "type": "object",
+                "required": ["file_path", "content"],
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "The path of the file to write to",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "The content to write to the file",
+                    },
+                },
+            },
+        },
+    },
 ]
 
 
@@ -35,6 +56,11 @@ def execute_tool(tool_call):
     if tool_call.function.name == "Read":
         with open(arguments["file_path"], "r") as f:
             return f.read()
+
+    if tool_call.function.name == "Write":
+        with open(arguments["file_path"], "w") as f:
+            f.write(arguments["content"])
+        return "OK"
 
     raise RuntimeError(f"unknown tool: {tool_call.function.name}")
 
