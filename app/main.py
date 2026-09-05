@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import subprocess
 import sys
 
 from openai import OpenAI
@@ -47,6 +48,23 @@ TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "Bash",
+            "description": "Execute a shell command",
+            "parameters": {
+                "type": "object",
+                "required": ["command"],
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": "The command to execute",
+                    }
+                },
+            },
+        },
+    },
 ]
 
 
@@ -61,6 +79,16 @@ def execute_tool(tool_call):
         with open(arguments["file_path"], "w") as f:
             f.write(arguments["content"])
         return "OK"
+
+    if tool_call.function.name == "Bash":
+        result = subprocess.run(
+            arguments["command"],
+            shell=True,
+            cwd=os.getcwd(),
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout + result.stderr
 
     raise RuntimeError(f"unknown tool: {tool_call.function.name}")
 
