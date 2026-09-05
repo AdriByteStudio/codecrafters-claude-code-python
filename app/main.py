@@ -29,6 +29,16 @@ TOOLS = [
 ]
 
 
+def execute_tool(tool_call):
+    arguments = json.loads(tool_call.function.arguments)
+
+    if tool_call.function.name == "Read":
+        with open(arguments["file_path"], "r") as f:
+            return f.read()
+
+    raise RuntimeError(f"unknown tool: {tool_call.function.name}")
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("-p", required=True)
@@ -39,29 +49,34 @@ def main():
 
     client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
-    chat = client.chat.completions.create(
-        model="anthropic/claude-haiku-4.5",
-        messages=[{"role": "user", "content": args.p}],
-        tools=TOOLS,
-    )
+    messages = [{"role": "user", "content": args.p}]
 
-    if not chat.choices or len(chat.choices) == 0:
-        raise RuntimeError("no choices in response")
+    while True:
+        chat = client.chat.completions.create(
+            model="anthropic/claude-haiku-4.5",
+            messages=messages,
+            tools=TOOLS,
+        )
 
-    # You can use print statements as follows for debugging, they'll be visible when running tests.
-    print("Logs from your program will appear here!", file=sys.stderr)
+        if not chat.choices or len(chat.choices) == 0:
+            raise RuntimeError("no choices in response")
 
-    message = chat.choices[0].message
+        message = chat.choices[0].message
+        messages.append(message.model_dump(exclude_none=True))
 
-    if message.tool_calls:
-        tool_call = message.tool_calls[0]
-        arguments = json.loads(tool_call.function.arguments)
+        if not message.tool_calls:
+            print(message.content)
+            break
 
-        if tool_call.function.name == "Read":
-            with open(arguments["file_path"], "r") as f:
-                print(f.read())
-    else:
-        print(message.content)
+        for tool_call in message.tool_calls:
+            result = execute_tool(tool_call)
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": result,
+                }
+            )
 
 
 if __name__ == "__main__":
